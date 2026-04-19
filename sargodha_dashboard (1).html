@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sargodha Division Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #1a5276;
+    --primary-light: #2980b9;
+    --accent: #27ae60;
+    --danger: #e74c3c;
+    --warn: #f39c12;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --muted: #7f8c8d;
+    --border: #dce3ea;
+    --tab-active: #1a5276;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white; padding: 18px 28px; display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header .icon { font-size: 2rem; }
+  header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.3px; }
+  header p { font-size: 0.82rem; opacity: 0.85; margin-top: 2px; }
+
+  .tabs { display: flex; background: var(--primary); padding: 0 28px; gap: 4px; overflow-x: auto; }
+  .tab-btn {
+    padding: 12px 22px; border: none; background: transparent; color: rgba(255,255,255,0.7);
+    cursor: pointer; font-size: 0.9rem; font-weight: 600; border-bottom: 3px solid transparent;
+    white-space: nowrap; transition: all 0.2s;
+  }
+  .tab-btn:hover { color: white; }
+  .tab-btn.active { color: white; border-bottom-color: #f1c40f; background: rgba(255,255,255,0.1); }
+
+  .tab-pane { display: none; padding: 28px; }
+  .tab-pane.active { display: block; }
+
+  .card {
+    background: var(--card); border-radius: 10px; padding: 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 22px;
+  }
+  .card h2 { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .metric {
+    background: var(--card); border-radius: 10px; padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07); text-align: center;
+    border-top: 4px solid var(--primary);
+  }
+  .metric.green { border-top-color: var(--accent); }
+  .metric.red { border-top-color: var(--danger); }
+  .metric.orange { border-top-color: var(--warn); }
+  .metric .val { font-size: 2rem; font-weight: 800; color: var(--primary); }
+  .metric.green .val { color: var(--accent); }
+  .metric.red .val { color: var(--danger); }
+  .metric.orange .val { color: var(--warn); }
+  .metric .lbl { font-size: 0.78rem; color: var(--muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; margin-bottom: 22px; }
+  .chart-card { background: var(--card); border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .chart-card h3 { font-size: 0.95rem; font-weight: 700; color: var(--primary); margin-bottom: 14px; }
+  canvas { max-height: 300px; }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; align-items: flex-end; }
+  .filter-bar label { font-size: 0.8rem; font-weight: 700; color: var(--muted); display: block; margin-bottom: 5px; }
+  .filter-bar select, .filter-bar input {
+    padding: 9px 13px; border: 2px solid var(--border); border-radius: 7px;
+    font-size: 0.88rem; background: white; color: var(--text); min-width: 180px;
+    transition: border-color 0.2s;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: var(--primary-light); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  thead th { background: var(--primary); color: white; padding: 10px 12px; text-align: left; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.4px; }
+  tbody tr:nth-child(even) { background: #f7f9fb; }
+  tbody tr:hover { background: #eaf4fb; }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+  .badge-green { background: #d5f5e3; color: #1e8449; }
+  .badge-red { background: #fadbd8; color: #922b21; }
+  .badge-orange { background: #fef9e7; color: #b7770d; }
+
+  .btn {
+    padding: 10px 22px; border: none; border-radius: 7px; cursor: pointer;
+    font-size: 0.88rem; font-weight: 700; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-success { background: var(--accent); color: white; }
+  .btn-success:hover { background: #219a52; }
+
+  .tehsil-detail { display: none; }
+  .tehsil-detail.visible { display: block; }
+
+  .section-title { font-size: 1rem; font-weight: 800; color: var(--primary); margin: 18px 0 10px; border-left: 4px solid var(--primary-light); padding-left: 10px; }
+
+  .no-data { text-align: center; padding: 40px; color: var(--muted); font-size: 0.95rem; }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.1rem; }
+    .tab-btn { padding: 10px 14px; font-size: 0.8rem; }
+    .tab-pane { padding: 16px; }
+    table { font-size: 0.78rem; }
+    td, thead th { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon">📊</div>
+  <div>
+    <h1>Sargodha Division HR &amp; Fleet Dashboard</h1>
+    <p>SGWMC &bull; Sargodha Division &bull; Data pre-loaded from official records</p>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
+  <button class="tab-btn" onclick="showTab('addendum')">📁 Addendum</button>
+  <button class="tab-btn" onclick="showTab('hr')">👥 HR Report</button>
+  <button class="tab-btn" onclick="showTab('fleet')">🚛 Fleet</button>
+  <button class="tab-btn" onclick="showTab('tehsil')">🔍 Tehsil Report</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="tab-pane active">
+  <div class="metrics-grid">
+    <div class="metric"><div class="val" id="m-total-hr">0</div><div class="lbl">Total HR</div></div>
+    <div class="metric green"><div class="val" id="m-deployed">0</div><div class="lbl">Fleet Deployed</div></div>
+    <div class="metric orange"><div class="val" id="m-required">0</div><div class="lbl">Fleet Required</div></div>
+    <div class="metric red"><div class="val" id="m-shortage">0</div><div class="lbl">Fleet Shortage</div></div>
+    <div class="metric"><div class="val" id="m-tehsils">18</div><div class="lbl">Total Tehsils</div></div>
+    <div class="metric green"><div class="val" id="m-mach-after">0</div><div class="lbl">Machinery After Addendum</div></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>🏘️ Fleet by District (Required vs Deployed)</h3>
+      <canvas id="chartDistrict"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>👥 HR Distribution by District</h3>
+      <canvas id="chartHR"></canvas>
+    </div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>📋 Fleet Type Breakdown (Division Total)</h3>
+      <canvas id="chartFleetType"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📜 Addendum: HR Before vs After</h3>
+      <canvas id="chartAddendum"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ADDENDUM -->
+<div id="tab-addendum" class="tab-pane">
+  <div class="card">
+    <h2>📁 Addendum Performa</h2>
+    <div class="filter-bar">
+      <div><label>Filter by District</label><select id="addDistrictFilter" onchange="renderAddendum()"><option value="">All Districts</option></select></div>
+      <div><label>Search Tehsil</label><input type="text" id="addSearch" placeholder="Type tehsil name..." oninput="renderAddendum()"></div>
+    </div>
+    <div style="overflow-x:auto"><table id="addTable">
+      <thead><tr>
+        <th>WMC</th><th>District</th><th>Tehsil</th><th>Sign Date</th>
+        <th>HR Before</th><th>HR After</th><th>Portal (HR)</th>
+        <th>Mach. Before</th><th>Mach. After</th><th>Portal (Mach.)</th>
+      </tr></thead>
+      <tbody id="addBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- HR -->
+<div id="tab-hr" class="tab-pane">
+  <div class="card">
+    <h2>👥 HR Report — Sargodha Division</h2>
+    <div class="filter-bar">
+      <div><label>Filter by District</label><select id="hrDistrictFilter" onchange="renderHR()"><option value="">All Districts</option></select></div>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>District</th><th>Tehsil</th><th>Drivers</th><th>Helpers</th><th>Supervisors</th><th>Sanitary Workers</th><th>Total HR</th></tr></thead>
+      <tbody id="hrBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- FLEET -->
+<div id="tab-fleet" class="tab-pane">
+  <div class="card">
+    <h2>🚛 Fleet Detail</h2>
+    <div class="filter-bar">
+      <div><label>Filter by District</label><select id="fleetDistrictFilter" onchange="renderFleet()"><option value="">All Districts</option></select></div>
+      <div><label>Filter by Tehsil</label><select id="fleetTehsilFilter" onchange="renderFleet()"><option value="">All Tehsils</option></select></div>
+      <div><label>Search Fleet Type</label><input type="text" id="fleetSearch" placeholder="e.g. Compactor..." oninput="renderFleet()"></div>
+    </div>
+    <div class="metrics-grid" id="fleetMetrics"></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>District</th><th>Tehsil</th><th>Fleet Type</th><th>Required</th><th>Deployed</th><th>Difference</th></tr></thead>
+      <tbody id="fleetBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- TEHSIL REPORT -->
+<div id="tab-tehsil" class="tab-pane">
+  <div class="card">
+    <h2>🔍 Tehsil-wise Report</h2>
+    <div class="filter-bar">
+      <div><label>Select Tehsil</label>
+        <select id="tehsilSelect" onchange="renderTehsil()">
+          <option value="">-- Select a Tehsil --</option>
+        </select>
+      </div>
+      <button class="btn btn-success" onclick="downloadReport()" style="margin-top:20px">⬇ Download Report (CSV)</button>
+    </div>
+  </div>
+
+  <div id="tehsilDetail" class="tehsil-detail">
+    <div class="metrics-grid" id="tehsilMetrics"></div>
+
+    <div class="card">
+      <h2>📜 Addendum Info</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>WMC</th><th>District</th><th>Tehsil</th><th>Sign Date</th><th>HR Before</th><th>HR After</th><th>Mach Before</th><th>Mach After</th></tr></thead>
+      <tbody id="tehsilAddBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>👥 HR Summary</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>District</th><th>Tehsil</th><th>Drivers</th><th>Helpers</th><th>Supervisors</th><th>Sanitary Workers</th><th>Total HR</th></tr></thead>
+      <tbody id="tehsilHRBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>🚛 Fleet Detail</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Fleet Type</th><th>Required</th><th>Deployed</th><th>Difference</th></tr></thead>
+      <tbody id="tehsilFleetBody"></tbody></table></div>
+      <div class="charts-row" style="margin-top:20px">
+        <div class="chart-card"><h3>Fleet: Required vs Deployed</h3><canvas id="chartTehsilFleet"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tehsilPlaceholder" class="card no-data">
+    <p>Select a Tehsil above to view the complete report.</p>
+  </div>
+</div>
+
+<script>
+const HR_DATA = [{"District": "Sargodha", "Tehsil": "Sargodha", "Drivers": 501, "Helpers": 25, "Supervisors": 92, "Sanitary Workers": 1630, "Total HR": 2248}, {"District": "Sargodha", "Tehsil": "Bhera", "Drivers": 123, "Helpers": 3, "Supervisors": 21, "Sanitary Workers": 308, "Total HR": 455}, {"District": "Sargodha", "Tehsil": "Bhalwal", "Drivers": 129, "Helpers": 5, "Supervisors": 24, "Sanitary Workers": 357, "Total HR": 515}, {"District": "Sargodha", "Tehsil": "Kot Momin", "Drivers": 187, "Helpers": 4, "Supervisors": 31, "Sanitary Workers": 377, "Total HR": 599}, {"District": "Sargodha", "Tehsil": "Sahiwal", "Drivers": 126, "Helpers": 3, "Supervisors": 21, "Sanitary Workers": 297, "Total HR": 447}, {"District": "Sargodha", "Tehsil": "Sillanwali", "Drivers": 131, "Helpers": 4, "Supervisors": 23, "Sanitary Workers": 269, "Total HR": 427}, {"District": "Sargodha", "Tehsil": "Shahpur", "Drivers": 148, "Helpers": 3, "Supervisors": 22, "Sanitary Workers": 325, "Total HR": 498}, {"District": "Khushab", "Tehsil": "Khushab", "Drivers": 225, "Helpers": 11, "Supervisors": 22, "Sanitary Workers": 736, "Total HR": 994}, {"District": "Khushab", "Tehsil": "Naushera", "Drivers": 61, "Helpers": 1, "Supervisors": 7, "Sanitary Workers": 115, "Total HR": 184}, {"District": "Khushab", "Tehsil": "Quaidabad", "Drivers": 89, "Helpers": 1, "Supervisors": 10, "Sanitary Workers": 176, "Total HR": 276}, {"District": "Khushab", "Tehsil": "Noor Pur thal", "Drivers": 88, "Helpers": 1, "Supervisors": 12, "Sanitary Workers": 227, "Total HR": 328}, {"District": "Mianwali", "Tehsil": "Mianwali", "Drivers": 251, "Helpers": 5, "Supervisors": 37, "Sanitary Workers": 651, "Total HR": 944}, {"District": "Mianwali", "Tehsil": "Esa Khel", "Drivers": 127, "Helpers": 3, "Supervisors": 18, "Sanitary Workers": 324, "Total HR": 472}, {"District": "Mianwali", "Tehsil": "Piplan", "Drivers": 131, "Helpers": 3, "Supervisors": 17, "Sanitary Workers": 347, "Total HR": 498}, {"District": "Bhakkar", "Tehsil": "Bhakkar", "Drivers": 235, "Helpers": 5, "Supervisors": 34, "Sanitary Workers": 556, "Total HR": 830}, {"District": "Bhakkar", "Tehsil": "Kalur kot ", "Drivers": 122, "Helpers": 3, "Supervisors": 16, "Sanitary Workers": 268, "Total HR": 409}, {"District": "Bhakkar", "Tehsil": "Darya Khan", "Drivers": 120, "Helpers": 3, "Supervisors": 19, "Sanitary Workers": 324, "Total HR": 466}, {"District": "Bhakkar", "Tehsil": "Mankera", "Drivers": 96, "Helpers": 3, "Supervisors": 14, "Sanitary Workers": 216, "Total HR": 329}];
+const ADD_DATA = [{"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Sargodha", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 1778, "HR After Addendum": 2255, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 321, "Machinery After Addendum": 497, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Bhera", "Addendum Sign Date": "2025-08-12", "HR Before Addendum": 314, "HR After Addendum": 455, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 68, "Machinery After Addendum": 125, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Bhalwal", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 357, "HR After Addendum": 515, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 80, "Machinery After Addendum": 130, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Kot Momin", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 398, "HR After Addendum": 599, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 117, "Machinery After Addendum": 189, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Sahiwal", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 310, "HR After Addendum": 447, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 83, "Machinery After Addendum": 125, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Sillanwali", "Addendum Sign Date": "2025-06-11", "HR Before Addendum": 296, "HR After Addendum": 427, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 85, "Machinery After Addendum": 135, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Sargodha", "Tehsil": "Shahpur", "Addendum Sign Date": "2025-10-12", "HR Before Addendum": 346, "HR After Addendum": 498, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 79, "Machinery After Addendum": 141, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Khushab", "Tehsil": "Khushab", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 771, "HR After Addendum": 1010, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 160, "Machinery After Addendum": 229, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Khushab", "Tehsil": "Naushera", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 104, "HR After Addendum": 180, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 41, "Machinery After Addendum": 68, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Khushab", "Tehsil": "Quaidabad", "Addendum Sign Date": "2025-01-12", "HR Before Addendum": 178, "HR After Addendum": 276, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 56, "Machinery After Addendum": 90, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Khushab", "Tehsil": "Noor Pur thal", "Addendum Sign Date": "2025-01-12", "HR Before Addendum": 220, "HR After Addendum": 328, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 66, "Machinery After Addendum": 91, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Mianwali", "Tehsil": "Mianwali", "Addendum Sign Date": "2025-11-11", "HR Before Addendum": 737, "HR After Addendum": 944, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 171, "Machinery After Addendum": 245, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Mianwali", "Tehsil": "Esa Khel", "Addendum Sign Date": "2025-01-12", "HR Before Addendum": 338, "HR After Addendum": 472, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 92, "Machinery After Addendum": 132, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Mianwali", "Tehsil": "Piplan", "Addendum Sign Date": "2025-01-12", "HR Before Addendum": 382, "HR After Addendum": 498, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 92, "Machinery After Addendum": 125, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Bhakhar", "Tehsil": "Bhakkar", "Addendum Sign Date": "2025-05-11", "HR Before Addendum": 580, "HR After Addendum": 830, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 151, "Machinery After Addendum": 221, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Bhakhar", "Tehsil": "Kalur kot", "Addendum Sign Date": "2025-08-10", "HR Before Addendum": 304, "HR After Addendum": 409, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 90, "Machinery After Addendum": 128, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Bhakhar", "Tehsil": "Darya Khan", "Addendum Sign Date": "2025-05-12", "HR Before Addendum": 312, "HR After Addendum": 466, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 87, "Machinery After Addendum": 135, "Added on Suthra Punjab Portal .1": "Yes"}, {"WMC": "SGWMC", "Division": "Sargodha", "District": "Bhakhar", "Tehsil": "Mankera", "Addendum Sign Date": "2025-05-12", "HR Before Addendum": 216, "HR After Addendum": 329, "Added on Suthra Punjab Portal": "Yes", "Machinery Before Addendum": 68, "Machinery After Addendum": 104, "Added on Suthra Punjab Portal .1": "Yes"}];
+const FLEET_DATA = [{"Tehsil": "Sargodha", "Fleet Type": "Loader Rickshaw", "Required Fleet": 355, "Deployed Fleet": 360, "Difference": -5, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Tractor Trolley", "Required Fleet": 25, "Deployed Fleet": 40, "Difference": -15, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Dumper (5m3)", "Required Fleet": 24, "Deployed Fleet": 20, "Difference": 4, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Dumper (10m3)", "Required Fleet": 23, "Deployed Fleet": 4, "Difference": 19, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 10, "Difference": -10, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Mechanical sweeper", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Rickshaw Washer", "Required Fleet": 3, "Deployed Fleet": 4, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Compactor (7m3)", "Required Fleet": 9, "Deployed Fleet": 11, "Difference": -2, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 8, "Deployed Fleet": 11, "Difference": -3, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Front End Loader", "Required Fleet": 8, "Deployed Fleet": 0, "Difference": 8, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Tractor front blade", "Required Fleet": 0, "Deployed Fleet": 9, "Difference": -9, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Tractor Loader", "Required Fleet": 18, "Deployed Fleet": 22, "Difference": -4, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "vaccum sweeper", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Sargodha", "Fleet Type": "Chain dozer", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Chain Aram Roll", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Compactor (7CM)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Drain Cleaner", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Dumper (10CM)", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Dumper (5CM)", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Front End Loader", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Tractor Loader", "Required Fleet": 5, "Deployed Fleet": 3, "Difference": 2, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Loader Rickshaw", "Required Fleet": 91, "Deployed Fleet": 42, "Difference": 49, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Tractor Front Blade", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Tractor Trolley", "Required Fleet": 10, "Deployed Fleet": 5, "Difference": 5, "District": "Sargodha"}, {"Tehsil": "Bhera", "Fleet Type": "Vaccum Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Tractor Front blade", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Tractor Trolleys", "Required Fleet": 10, "Deployed Fleet": 13, "Difference": -3, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Tractor loader", "Required Fleet": 5, "Deployed Fleet": 6, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Front end loader", "Required Fleet": 3, "Deployed Fleet": 3, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Dumper 22m3 (Volumetric  conversions)", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Dumper 10m3", "Required Fleet": 5, "Deployed Fleet": 1, "Difference": 4, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Dumper 5", "Required Fleet": 3, "Deployed Fleet": 0, "Difference": 3, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Loader Rikshaw", "Required Fleet": 93, "Deployed Fleet": 93, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Tractor Mounted Mechanical sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Rikshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Drain cleaner", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Vacuum Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Chain arm roll", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Bhalwal", "Fleet Type": "Compactor 7cm", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Chain Arm Roll", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Compactor 9CM", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Compactor 7CM", "Required Fleet": 2, "Deployed Fleet": 0, "Difference": 2, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Drain Cleaner", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Dumper 10CM", "Required Fleet": 7, "Deployed Fleet": 7, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Dumper 5CM", "Required Fleet": 6, "Deployed Fleet": 6, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Front End Loader", "Required Fleet": 5, "Deployed Fleet": 5, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Loader Rickshaw", "Required Fleet": 133, "Deployed Fleet": 78, "Difference": 55, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Rikshaw Washer", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Tractor Loader", "Required Fleet": 10, "Deployed Fleet": 6, "Difference": 4, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Mechanical sweeper", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Tractor Trolly", "Required Fleet": 20, "Deployed Fleet": 10, "Difference": 10, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Vacuum Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Kot Momin", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Loader Rickshaw", "Required Fleet": 87, "Deployed Fleet": 56, "Difference": 31, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Tractor Trolley", "Required Fleet": 10, "Deployed Fleet": 5, "Difference": 5, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Tractor front blade", "Required Fleet": 0, "Deployed Fleet": 2, "Difference": -2, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Dumper (5m3)", "Required Fleet": 4, "Deployed Fleet": 3, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Dumper (10m3)", "Required Fleet": 6, "Deployed Fleet": 6, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Front End Loader", "Required Fleet": 4, "Deployed Fleet": 2, "Difference": 2, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Tractor Loader", "Required Fleet": 6, "Deployed Fleet": 3, "Difference": 3, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Sahiwal", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Silanwali", "Fleet Type": "Loader Rickshaw", "Required Fleet": 93, "Deployed Fleet": 58, "Difference": 35, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Tractor Trolley", "Required Fleet": 11, "Deployed Fleet": 6, "Difference": 5, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Dumper (5m3)", "Required Fleet": 4, "Deployed Fleet": 6, "Difference": -2, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Dumper (10m3)", "Required Fleet": 5, "Deployed Fleet": 4, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Road washer", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Compactor (7m3)", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Front End Loader", "Required Fleet": 3, "Deployed Fleet": 2, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Tractor Loader", "Required Fleet": 8, "Deployed Fleet": 4, "Difference": 4, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 3, "Deployed Fleet": 2, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Silanwali", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Shahpur", "Fleet Type": "Loader Rickshaw", "Required Fleet": 105, "Deployed Fleet": 55, "Difference": 50, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Tractor Trolley", "Required Fleet": 11, "Deployed Fleet": 10, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Dumper (5m3)", "Required Fleet": 4, "Deployed Fleet": 0, "Difference": 4, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Dumper (10m3)", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Dumper (22m3)", "Required Fleet": 0, "Deployed Fleet": 2, "Difference": -2, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Front End Loader", "Required Fleet": 4, "Deployed Fleet": 3, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "crane", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Tractor Loader", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Tractor front blade", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Mechanical Washer", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "Gully Sucker", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Sargodha"}, {"Tehsil": "Shahpur", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Sargodha"}, {"Tehsil": "Khushab", "Fleet Type": "Tractor Front blade", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Tractor Trolleys", "Required Fleet": 15, "Deployed Fleet": 26, "Difference": -11, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Dumper 22m3", "Required Fleet": 0, "Deployed Fleet": 7, "Difference": -7, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Dumper 5m3", "Required Fleet": 8, "Deployed Fleet": 0, "Difference": 8, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Dumper 10m3", "Required Fleet": 10, "Deployed Fleet": 1, "Difference": 9, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Loader Rikshaw", "Required Fleet": 158, "Deployed Fleet": 161, "Difference": -3, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Rikshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Drain cleaner", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Vacuum Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Arm Roll", "Required Fleet": 3, "Deployed Fleet": 5, "Difference": -2, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Compactor 7cm", "Required Fleet": 4, "Deployed Fleet": 5, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Tractor loader", "Required Fleet": 10, "Deployed Fleet": 11, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Front end loader", "Required Fleet": 5, "Deployed Fleet": 6, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Khushab", "Fleet Type": "Tractor Hoe", "Required Fleet": 3, "Deployed Fleet": 3, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Loader Rickshaw", "Required Fleet": 46, "Deployed Fleet": 18, "Difference": 28, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Tractor Trolley", "Required Fleet": 5, "Deployed Fleet": 6, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Dumper (5m3)", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Dumper (10m3)", "Required Fleet": 3, "Deployed Fleet": 1, "Difference": 2, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Front End Loader", "Required Fleet": 5, "Deployed Fleet": 6, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Tractor Loader", "Required Fleet": 2, "Deployed Fleet": 0, "Difference": 2, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "water bowzer", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Naushera", "Fleet Type": "Wheel excavator", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Loader Rickshaw", "Required Fleet": 66, "Deployed Fleet": 36, "Difference": 30, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Tractor Trolley", "Required Fleet": 7, "Deployed Fleet": 4, "Difference": 3, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Dumper (5m3)", "Required Fleet": 3, "Deployed Fleet": 0, "Difference": 3, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Dumper (10m3)", "Required Fleet": 4, "Deployed Fleet": 1, "Difference": 3, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 2, "Difference": -2, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Compactor (7m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Front End Loader", "Required Fleet": 5, "Deployed Fleet": 5, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Tractor Loader", "Required Fleet": 4, "Deployed Fleet": 3, "Difference": 1, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Khushab"}, {"Tehsil": "Quaidabad", "Fleet Type": "vaccum sweeper", "Required Fleet": -1, "Deployed Fleet": 0, "Difference": -1, "District": "Khushab"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Loader Rickshaw", "Required Fleet": 65, "Deployed Fleet": 45, "Difference": 20, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Tractor Trolley", "Required Fleet": 8, "Deployed Fleet": 5, "Difference": 3, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Dumper (5m3)", "Required Fleet": 3, "Deployed Fleet": 0, "Difference": 3, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Dumper (10m3)", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Front End Loader", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Tractor Loader", "Required Fleet": 4, "Deployed Fleet": 3, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Noorpur Thal", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Mianwali", "Fleet Type": "Chain arm roll", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Tractor Loader", "Required Fleet": 8, "Deployed Fleet": 6, "Difference": 2, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Compactor 7m3", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Tractor Trolleys", "Required Fleet": 17, "Deployed Fleet": 14, "Difference": 3, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Dumper 20m3", "Required Fleet": 0, "Deployed Fleet": 6, "Difference": -6, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Dumper 10m3", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Dumper 5m3", "Required Fleet": 10, "Deployed Fleet": 6, "Difference": 4, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Loader Rikshaw", "Required Fleet": 182, "Deployed Fleet": 128, "Difference": 54, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Vaccuum Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Rickshaw washer", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 2, "Difference": -2, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Mechanical Washer", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Front End Loader", "Required Fleet": 6, "Deployed Fleet": 5, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Mianwali", "Fleet Type": "Drain Cleaner", "Required Fleet": 3, "Deployed Fleet": 1, "Difference": 2, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Chain / wheel Arm Roll", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Wheel loader", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Compactor (13m3)", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Dumper (5m3)", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Dumper (10m3)", "Required Fleet": 7, "Deployed Fleet": 1, "Difference": 6, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Tractor Loader", "Required Fleet": 2, "Deployed Fleet": 0, "Difference": 2, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Front End Loader", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Tractor front blade", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "chain excavator", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 0, "Difference": 2, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Loader Rickshaw", "Required Fleet": 99, "Deployed Fleet": 59, "Difference": 40, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Tractor Trolley", "Required Fleet": 8, "Deployed Fleet": 7, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Rickshaw Washers", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Mechanical Sweeper", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Mechanical Washer", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Mianwali"}, {"Tehsil": "Esa Khel", "Fleet Type": "Vacuum Sweeper", "Required Fleet": -1, "Deployed Fleet": 0, "Difference": -1, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Loader Rickshaw", "Required Fleet": 93, "Deployed Fleet": 63, "Difference": 30, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Tractor Trolley", "Required Fleet": 7, "Deployed Fleet": 7, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Dumper (5m3)", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Dumper (10m3)", "Required Fleet": 6, "Deployed Fleet": 1, "Difference": 5, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Front End Loader", "Required Fleet": 5, "Deployed Fleet": 5, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Tractor Loader", "Required Fleet": 6, "Deployed Fleet": 4, "Difference": 2, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Piplan", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Mianwali"}, {"Tehsil": "Bhakkar", "Fleet Type": "Chain Arm Roll", "Required Fleet": 1, "Deployed Fleet": 2, "Difference": -1, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Compactor (7m3)", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Dumper (5m3)", "Required Fleet": 8, "Deployed Fleet": 5, "Difference": 3, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Dumper (10m3)", "Required Fleet": 10, "Deployed Fleet": 0, "Difference": 10, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 7, "Difference": -7, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Front End Loader", "Required Fleet": 6, "Deployed Fleet": 4, "Difference": 2, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Gully Sucker (4000 Ltr)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Loader Rickshaw", "Required Fleet": 163, "Deployed Fleet": 104, "Difference": 59, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Tractor mounted  Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Tractor with Hoe(drain cleaner)", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Tractor Loader", "Required Fleet": 8, "Deployed Fleet": 6, "Difference": 2, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Tractor Trolley", "Required Fleet": 19, "Deployed Fleet": 15, "Difference": 4, "District": "Bhakhar"}, {"Tehsil": "Bhakkar", "Fleet Type": "Vacuum Sweaper", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Bhakhar"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Loader Rickshaw/", "Required Fleet": 88, "Deployed Fleet": 59, "Difference": 29, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Tractor Trolley/", "Required Fleet": 12, "Deployed Fleet": 10, "Difference": 2, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Dumper (5m3)/", "Required Fleet": 5, "Deployed Fleet": 2, "Difference": 3, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Dumper (10m3)/", "Required Fleet": 6, "Deployed Fleet": 0, "Difference": 6, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 3, "Difference": -3, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Tractor Mounted Mechanical Sweeper/", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Rickshaw Washer/", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Compactor (7m3)/", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Chain / wheel Arm Roller/", "Required Fleet": 2, "Deployed Fleet": 1, "Difference": 1, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Front End Loader/", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Loader", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Tractor Loader/", "Required Fleet": 7, "Deployed Fleet": 4, "Difference": 3, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Drain Cleaner / Tractor with Hoe/", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Gully Sucker/", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "vaccum sweeper/", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Unknown"}, {"Tehsil": "Kalur Kot", "Fleet Type": "Wheel excavator", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Unknown"}, {"Tehsil": "Darya Khan", "Fleet Type": "Compactor (7m3)", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Tractor Loader", "Required Fleet": 7, "Deployed Fleet": 5, "Difference": 2, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Front End Loader", "Required Fleet": 5, "Deployed Fleet": 5, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 2, "Deployed Fleet": 2, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Loader Rickshaw", "Required Fleet": 93, "Deployed Fleet": 56, "Difference": 37, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Tractor Trolley", "Required Fleet": 11, "Deployed Fleet": 7, "Difference": 4, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Rickshaw Washers", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 5, "Difference": -5, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Water boser", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Dumper (05m3)", "Required Fleet": 6, "Deployed Fleet": 2, "Difference": 4, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Dumper (10m3)", "Required Fleet": 6, "Deployed Fleet": 0, "Difference": 6, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Gully Sucker (4000 Liters)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Chain / wheel Arm Roll", "Required Fleet": 0, "Deployed Fleet": 1, "Difference": -1, "District": "Bhakhar"}, {"Tehsil": "Darya Khan", "Fleet Type": "Vaccum sweeper", "Required Fleet": -1, "Deployed Fleet": 0, "Difference": -1, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Loader Rickshaw", "Required Fleet": 74, "Deployed Fleet": 45, "Difference": 29, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Tractor Trolley", "Required Fleet": 8, "Deployed Fleet": 6, "Difference": 2, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Dumper (5m3)", "Required Fleet": 3, "Deployed Fleet": 0, "Difference": 3, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Dumper (10m3)", "Required Fleet": 5, "Deployed Fleet": 0, "Difference": 5, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Dumper (20m3)", "Required Fleet": 0, "Deployed Fleet": 4, "Difference": -4, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Dumper (25m3)", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Tractor Mounted Mechanical Sweeper", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Rickshaw Washer", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Compactor (7m3)", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Chain / wheel Arm Roller", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Front End Loader", "Required Fleet": 4, "Deployed Fleet": 4, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Tractor Loader", "Required Fleet": 4, "Deployed Fleet": 3, "Difference": 1, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Drain Cleaner / Tractor with Hoe", "Required Fleet": 3, "Deployed Fleet": 2, "Difference": 1, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Gully Sucker", "Required Fleet": 1, "Deployed Fleet": 1, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "vaccum sweeper", "Required Fleet": 0, "Deployed Fleet": 0, "Difference": 0, "District": "Bhakhar"}, {"Tehsil": "Mankera", "Fleet Type": "Water Boser", "Required Fleet": 1, "Deployed Fleet": 0, "Difference": 1, "District": "Bhakhar"}];
+
+// ---- TAB SWITCHING ----
+function showTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ---- HELPERS ----
+function num(v) { return typeof v === 'number' ? v : (parseFloat(v) || 0); }
+function badge(val, text) {
+  if (val === 'Yes') return `<span class="badge badge-green">${text || val}</span>`;
+  if (val === 'No') return `<span class="badge badge-red">${text || val}</span>`;
+  return val;
+}
+function diffBadge(d) {
+  if (d < 0) return `<span class="badge badge-red">${d}</span>`;
+  if (d === 0) return `<span class="badge badge-green">0</span>`;
+  return `<span class="badge badge-orange">+${d}</span>`;
+}
+
+// ---- POPULATE FILTERS ----
+function populateFilters() {
+  const districts = [...new Set(HR_DATA.map(r => r.District).filter(Boolean))].sort();
+  const tehsils = [...new Set(FLEET_DATA.map(r => r.Tehsil).filter(Boolean))].sort();
+
+  ['addDistrictFilter','hrDistrictFilter','fleetDistrictFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    districts.forEach(d => sel.add(new Option(d, d)));
+  });
+
+  const ftSel = document.getElementById('fleetTehsilFilter');
+  tehsils.forEach(t => ftSel.add(new Option(t, t)));
+
+  const tSel = document.getElementById('tehsilSelect');
+  tehsils.forEach(t => tSel.add(new Option(t, t)));
+}
+
+// ---- DASHBOARD ----
+let chartDistrict, chartHR, chartFleetType, chartAddendum;
+
+function renderDashboard() {
+  const totalHR = HR_DATA.reduce((s, r) => s + num(r['Total HR']), 0);
+  const reqFleet = FLEET_DATA.reduce((s, r) => s + num(r['Required Fleet']), 0);
+  const depFleet = FLEET_DATA.reduce((s, r) => s + num(r['Deployed Fleet']), 0);
+  const shortage = reqFleet - depFleet;
+  const machAfter = ADD_DATA.reduce((s, r) => s + num(r['Machinery After Addendum']), 0);
+
+  document.getElementById('m-total-hr').textContent = totalHR.toLocaleString();
+  document.getElementById('m-required').textContent = reqFleet.toLocaleString();
+  document.getElementById('m-deployed').textContent = depFleet.toLocaleString();
+  document.getElementById('m-shortage').textContent = shortage.toLocaleString();
+  document.getElementById('m-mach-after').textContent = machAfter.toLocaleString();
+
+  // District fleet chart
+  const districtMap = {};
+  FLEET_DATA.forEach(r => {
+    const d = r.District || 'Unknown';
+    if (!districtMap[d]) districtMap[d] = {req:0, dep:0};
+    districtMap[d].req += num(r['Required Fleet']);
+    districtMap[d].dep += num(r['Deployed Fleet']);
+  });
+  const dLabels = Object.keys(districtMap).filter(d => d !== 'Unknown').sort();
+  const dReq = dLabels.map(d => districtMap[d].req);
+  const dDep = dLabels.map(d => districtMap[d].dep);
+
+  if (chartDistrict) chartDistrict.destroy();
+  chartDistrict = new Chart(document.getElementById('chartDistrict'), {
+    type: 'bar',
+    data: { labels: dLabels, datasets: [
+      { label: 'Required', data: dReq, backgroundColor: '#2980b9cc' },
+      { label: 'Deployed', data: dDep, backgroundColor: '#27ae60cc' }
+    ]},
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+
+  // HR pie chart
+  const hrByDistrict = {};
+  HR_DATA.forEach(r => {
+    const d = r.District;
+    if (!hrByDistrict[d]) hrByDistrict[d] = 0;
+    hrByDistrict[d] += num(r['Total HR']);
+  });
+  const hrLabels = Object.keys(hrByDistrict).sort();
+  const hrVals = hrLabels.map(d => hrByDistrict[d]);
+
+  if (chartHR) chartHR.destroy();
+  chartHR = new Chart(document.getElementById('chartHR'), {
+    type: 'doughnut',
+    data: { labels: hrLabels, datasets: [{ data: hrVals, backgroundColor: ['#1a5276','#2980b9','#27ae60','#f39c12','#e74c3c'] }] },
+    options: { responsive: true, plugins: { legend: { position: 'right' } } }
+  });
+
+  // Fleet type chart
+  const ftMap = {};
+  FLEET_DATA.forEach(r => {
+    const t = r['Fleet Type'];
+    if (!ftMap[t]) ftMap[t] = {req:0, dep:0};
+    ftMap[t].req += num(r['Required Fleet']);
+    ftMap[t].dep += num(r['Deployed Fleet']);
+  });
+  const ftLabels = Object.keys(ftMap).sort((a,b) => ftMap[b].req - ftMap[a].req).slice(0,12);
+  const ftReq = ftLabels.map(t => ftMap[t].req);
+  const ftDep = ftLabels.map(t => ftMap[t].dep);
+
+  if (chartFleetType) chartFleetType.destroy();
+  chartFleetType = new Chart(document.getElementById('chartFleetType'), {
+    type: 'bar',
+    data: { labels: ftLabels, datasets: [
+      { label: 'Required', data: ftReq, backgroundColor: '#2980b9aa' },
+      { label: 'Deployed', data: ftDep, backgroundColor: '#27ae60aa' }
+    ]},
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+
+  // Addendum chart
+  const aLabels = ADD_DATA.map(r => r['Tehsil']);
+  const aHRBefore = ADD_DATA.map(r => num(r['HR Before Addendum']));
+  const aHRAfter = ADD_DATA.map(r => num(r['HR After Addendum']));
+
+  if (chartAddendum) chartAddendum.destroy();
+  chartAddendum = new Chart(document.getElementById('chartAddendum'), {
+    type: 'bar',
+    data: { labels: aLabels, datasets: [
+      { label: 'Before', data: aHRBefore, backgroundColor: '#e74c3caa' },
+      { label: 'After', data: aHRAfter, backgroundColor: '#27ae60aa' }
+    ]},
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+}
+
+// ---- ADDENDUM ----
+function renderAddendum() {
+  const distFilter = document.getElementById('addDistrictFilter').value;
+  const search = document.getElementById('addSearch').value.toLowerCase();
+  let data = ADD_DATA.filter(r => {
+    const distOk = !distFilter || r.District === distFilter;
+    const searchOk = !search || (r.Tehsil || '').toLowerCase().includes(search);
+    return distOk && searchOk;
+  });
+  const tbody = document.getElementById('addBody');
+  tbody.innerHTML = data.map(r => `<tr>
+    <td>${r.WMC||''}</td>
+    <td>${r.District||''}</td>
+    <td>${r.Tehsil||''}</td>
+    <td>${(r['Addendum Sign Date']||'').slice(0,10)}</td>
+    <td>${num(r['HR Before Addendum']).toLocaleString()}</td>
+    <td><strong>${num(r['HR After Addendum']).toLocaleString()}</strong></td>
+    <td>${badge(r['Added on Suthra Punjab Portal'])}</td>
+    <td>${num(r['Machinery Before Addendum']).toLocaleString()}</td>
+    <td><strong>${num(r['Machinery After Addendum']).toLocaleString()}</strong></td>
+    <td>${badge(r['Added on Suthra Punjab Portal .1'])}</td>
+  </tr>`).join('');
+}
+
+// ---- HR ----
+function renderHR() {
+  const distFilter = document.getElementById('hrDistrictFilter').value;
+  let data = HR_DATA.filter(r => !distFilter || r.District === distFilter);
+  const tbody = document.getElementById('hrBody');
+  tbody.innerHTML = data.map(r => `<tr>
+    <td>${r.District||''}</td>
+    <td>${r.Tehsil||''}</td>
+    <td>${num(r.Drivers).toLocaleString()}</td>
+    <td>${num(r.Helpers).toLocaleString()}</td>
+    <td>${num(r.Supervisors).toLocaleString()}</td>
+    <td>${num(r['Sanitary Workers']).toLocaleString()}</td>
+    <td><strong>${num(r['Total HR']).toLocaleString()}</strong></td>
+  </tr>`).join('');
+}
+
+// ---- FLEET ----
+function renderFleet() {
+  const distFilter = document.getElementById('fleetDistrictFilter').value;
+  const tehsilFilter = document.getElementById('fleetTehsilFilter').value;
+  const search = document.getElementById('fleetSearch').value.toLowerCase();
+
+  let data = FLEET_DATA.filter(r => {
+    const dOk = !distFilter || r.District === distFilter;
+    const tOk = !tehsilFilter || r.Tehsil === tehsilFilter;
+    const sOk = !search || (r['Fleet Type']||'').toLowerCase().includes(search);
+    return dOk && tOk && sOk;
+  });
+
+  const totReq = data.reduce((s, r) => s + num(r['Required Fleet']), 0);
+  const totDep = data.reduce((s, r) => s + num(r['Deployed Fleet']), 0);
+  const totDiff = totReq - totDep;
+
+  document.getElementById('fleetMetrics').innerHTML = `
+    <div class="metric orange"><div class="val">${totReq.toLocaleString()}</div><div class="lbl">Required</div></div>
+    <div class="metric green"><div class="val">${totDep.toLocaleString()}</div><div class="lbl">Deployed</div></div>
+    <div class="metric red"><div class="val">${totDiff.toLocaleString()}</div><div class="lbl">Shortage</div></div>
+  `;
+
+  const tbody = document.getElementById('fleetBody');
+  tbody.innerHTML = data.map(r => `<tr>
+    <td>${r.District||''}</td>
+    <td>${r.Tehsil||''}</td>
+    <td>${r['Fleet Type']||''}</td>
+    <td>${num(r['Required Fleet'])}</td>
+    <td>${num(r['Deployed Fleet'])}</td>
+    <td>${diffBadge(num(r['Required Fleet']) - num(r['Deployed Fleet']))}</td>
+  </tr>`).join('');
+}
+
+// ---- TEHSIL REPORT ----
+let chartTehsilFleet;
+
+function renderTehsil() {
+  const tehsil = document.getElementById('tehsilSelect').value;
+  const detail = document.getElementById('tehsilDetail');
+  const placeholder = document.getElementById('tehsilPlaceholder');
+
+  if (!tehsil) { detail.classList.remove('visible'); placeholder.style.display = ''; return; }
+  detail.classList.add('visible');
+  placeholder.style.display = 'none';
+
+  const hrRows = HR_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+  const addRows = ADD_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+  const fleetRows = FLEET_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+
+  const totReq = fleetRows.reduce((s, r) => s + num(r['Required Fleet']), 0);
+  const totDep = fleetRows.reduce((s, r) => s + num(r['Deployed Fleet']), 0);
+  const totDiff = totReq - totDep;
+  const totHR = hrRows.reduce((s, r) => s + num(r['Total HR']), 0);
+
+  document.getElementById('tehsilMetrics').innerHTML = `
+    <div class="metric"><div class="val">${totHR.toLocaleString()}</div><div class="lbl">Total HR</div></div>
+    <div class="metric orange"><div class="val">${totReq.toLocaleString()}</div><div class="lbl">Fleet Required</div></div>
+    <div class="metric green"><div class="val">${totDep.toLocaleString()}</div><div class="lbl">Fleet Deployed</div></div>
+    <div class="metric red"><div class="val">${totDiff.toLocaleString()}</div><div class="lbl">Fleet Shortage</div></div>
+  `;
+
+  document.getElementById('tehsilAddBody').innerHTML = addRows.map(r => `<tr>
+    <td>${r.WMC||''}</td><td>${r.District||''}</td><td>${r.Tehsil||''}</td>
+    <td>${(r['Addendum Sign Date']||'').slice(0,10)}</td>
+    <td>${num(r['HR Before Addendum'])}</td><td><strong>${num(r['HR After Addendum'])}</strong></td>
+    <td>${num(r['Machinery Before Addendum'])}</td><td><strong>${num(r['Machinery After Addendum'])}</strong></td>
+  </tr>`).join('') || '<tr><td colspan="8" class="no-data">No addendum data found</td></tr>';
+
+  document.getElementById('tehsilHRBody').innerHTML = hrRows.map(r => `<tr>
+    <td>${r.District||''}</td><td>${r.Tehsil||''}</td>
+    <td>${num(r.Drivers)}</td><td>${num(r.Helpers)}</td>
+    <td>${num(r.Supervisors)}</td><td>${num(r['Sanitary Workers'])}</td>
+    <td><strong>${num(r['Total HR'])}</strong></td>
+  </tr>`).join('') || '<tr><td colspan="7" class="no-data">No HR data found</td></tr>';
+
+  document.getElementById('tehsilFleetBody').innerHTML = fleetRows.map(r => `<tr>
+    <td>${r['Fleet Type']||''}</td>
+    <td>${num(r['Required Fleet'])}</td>
+    <td>${num(r['Deployed Fleet'])}</td>
+    <td>${diffBadge(num(r['Required Fleet']) - num(r['Deployed Fleet']))}</td>
+  </tr>`).join('') || '<tr><td colspan="4" class="no-data">No fleet data found</td></tr>';
+
+  // Fleet chart
+  const ftLabels = fleetRows.map(r => r['Fleet Type']);
+  const ftReq = fleetRows.map(r => num(r['Required Fleet']));
+  const ftDep = fleetRows.map(r => num(r['Deployed Fleet']));
+
+  if (chartTehsilFleet) chartTehsilFleet.destroy();
+  chartTehsilFleet = new Chart(document.getElementById('chartTehsilFleet'), {
+    type: 'bar',
+    data: { labels: ftLabels, datasets: [
+      { label: 'Required', data: ftReq, backgroundColor: '#2980b9cc' },
+      { label: 'Deployed', data: ftDep, backgroundColor: '#27ae60cc' }
+    ]},
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+}
+
+// ---- DOWNLOAD CSV ----
+function downloadReport() {
+  const tehsil = document.getElementById('tehsilSelect').value;
+  if (!tehsil) { alert('Please select a Tehsil first.'); return; }
+
+  const fleetRows = FLEET_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+  const hrRows = HR_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+  const addRows = ADD_DATA.filter(r => (r.Tehsil||'').trim() === tehsil);
+
+  let csv = `Sargodha Division Report - ${tehsil}\n\n`;
+  csv += 'ADDENDUM\nWMC,District,Tehsil,Sign Date,HR Before,HR After,Mach Before,Mach After\n';
+  addRows.forEach(r => {
+    csv += `${r.WMC},${r.District},${r.Tehsil},${(r['Addendum Sign Date']||'').slice(0,10)},${r['HR Before Addendum']},${r['HR After Addendum']},${r['Machinery Before Addendum']},${r['Machinery After Addendum']}\n`;
+  });
+  csv += '\nHR REPORT\nDistrict,Tehsil,Drivers,Helpers,Supervisors,Sanitary Workers,Total HR\n';
+  hrRows.forEach(r => {
+    csv += `${r.District},${r.Tehsil},${r.Drivers},${r.Helpers},${r.Supervisors},${r['Sanitary Workers']},${r['Total HR']}\n`;
+  });
+  csv += '\nFLEET DETAIL\nFleet Type,Required,Deployed,Difference\n';
+  fleetRows.forEach(r => {
+    csv += `${r['Fleet Type']},${r['Required Fleet']},${r['Deployed Fleet']},${num(r['Required Fleet'])-num(r['Deployed Fleet'])}\n`;
+  });
+
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `${tehsil}_report.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- INIT ----
+populateFilters();
+renderDashboard();
+renderAddendum();
+renderHR();
+renderFleet();
+</script>
+</body>
+</html>
